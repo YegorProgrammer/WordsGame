@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игра в слова | Голосовая битва</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- ИСПРАВЛЕНИЕ: Убираем ошибку 404 для иконки -->
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <div id="loading-overlay">Загрузка игры...</div>
+    <div class="container">
+        <div id="sphere"></div>
+        <div id="status">Нажмите "Старт", чтобы сыграть!</div>
+        <div id="controls">
+            <button id="startButton" class="btn">Старт</button>
+            <button id="pauseButton" class="btn hidden">Пауза</button>
+            <button id="hintButton" class="btn hidden">💡 Подсказка</button>
+            <button id="endButton" class="btn hidden">Сдаться</button>
+        </div>
+    </div>
+    
+    <audio id="audio-music" loop src="audio/music.mp3"></audio>
+    <audio id="audio-correct" src="audio/correct.mp3"></audio>
+    <audio id="audio-error" src="audio/error.mp3"></audio>
+    <audio id="audio-hint" src="audio/hint.mp3"></audio>
+    <audio id="audio-win" src="audio/win.mp3"></audio>
+    <audio id="audio-milestone" src="audio/milestone.mp3"></audio>
+
+    <script src="https://cdn.jsdelivr.net/npm/js-confetti@latest/dist/js-confetti.browser.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>

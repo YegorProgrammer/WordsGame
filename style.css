@@ -1,0 +1,74 @@
+:root {
+    --bg-color: #12121a;
+    --sphere-bg: radial-gradient(circle at 35% 35%, #7e78d2, #4a47a3);
+    --text-color: #e0e0e0;
+    --btn-start: #28a745;
+    --btn-pause: #ffc107;
+    --btn-hint: #17a2b8;
+    --btn-end: #dc3545;
+    --font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+    font-family: var(--font-family);
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    min-height: 100vh; margin: 0; padding: 20px;
+    background-color: var(--bg-color); color: var(--text-color);
+    text-align: center; overflow: hidden;
+}
+#loading-overlay {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: var(--bg-color);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 1000;
+    color: var(--text-color); font-size: 1.5em;
+    transition: opacity 0.5s ease;
+}
+.container {
+    width: 100%; max-width: 600px;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 25px;
+}
+#sphere {
+    width: clamp(200px, 45vw, 280px);
+    height: clamp(200px, 45vw, 280px);
+    border-radius: 50%;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 5px 15px rgba(255,255,255,0.1);
+    transition: background 0.4s ease, transform 0.4s ease;
+    /* ИСПРАВЛЕНИЕ: background убран отсюда, чтобы не перебивать классы */
+}
+@keyframes breathing {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+}
+@keyframes thinking-pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 5px 15px rgba(255,255,255,0.1), 0 0 0 0px rgba(173, 98, 170, 0.5);
+    }
+    50% {
+        transform: scale(1.1);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 5px 15px rgba(255,255,255,0.1), 0 0 0 40px rgba(173, 98, 170, 0);
+    }
+}
+/* НОВЫЙ КЛАСС для стандартного состояния */
+.idle { background: var(--sphere-bg); }
+
+.listening { animation: breathing 2s ease-in-out infinite; background: var(--sphere-bg); }
+.thinking { animation: thinking-pulse 1.5s ease-in-out infinite; background: var(--sphere-bg); }
+.effect-error { background: radial-gradient(circle, #ff6b6b, #c92a2a); }
+.effect-hint { background: radial-gradient(circle, #ffdd57, #ff9f1a); }
+.effect-win { background: radial-gradient(circle, #ffd700, #f0932b); }
+
+#status { font-size: clamp(1.1em, 3vw, 1.4em); min-height: 45px; font-weight: 300; }
+#controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 15px; width: 100%; }
+.btn { padding: 12px 20px; font-size: 1em; font-weight: 600; cursor: pointer; border: none; border-radius: 8px; color: white; transition: all 0.2s; flex-grow: 1; flex-basis: 130px; max-width: 200px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+.btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+.btn:disabled { background-color: #555 !important; cursor: not-allowed; transform: none; box-shadow: none; }
+#startButton { background-color: var(--btn-start); }
+#pauseButton { background-color: var(--btn-pause); color: #212529; }
+#pauseButton.resume-mode { background-color: #00bcd4; color: white; }
+#hintButton { background-color: var(--btn-hint); }
+#endButton { background-color: var(--btn-end); }
+.hidden { display: none; }
