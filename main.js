@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', init);
 
 // ===================================================================
-// 1. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И СОСТОЯНИЯ
+// 1. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
 // ===================================================================
 let dictionary = {};
 let ui, audio, recognition, jsConfetti;
@@ -16,7 +16,7 @@ let lastSpoken = {};
 let lastLetter = '';
 
 // ===================================================================
-// 2. ФУНКЦИИ ИНИЦИАЛИЗАЦИИ И НАСТРОЙКИ
+// 2. ИНИЦИАЛИЗАЦИЯ И НАСТРОЙКА
 // ===================================================================
 async function init() {
     try {
@@ -30,31 +30,25 @@ async function init() {
 }
 
 function setup() {
-    ui = {
-        startButton: document.getElementById('startButton'),
-        pauseButton: document.getElementById('pauseButton'),
-        hintButton: document.getElementById('hintButton'),
-        endButton: document.getElementById('endButton'),
-        statusDiv: document.getElementById('status'),
-        sphere: document.getElementById('sphere'),
-        loadingOverlay: document.getElementById('loading-overlay')
-    };
-    audio = {
-        music: document.getElementById('audio-music'), correct: document.getElementById('audio-correct'),
-        error: document.getElementById('audio-error'), hint: document.getElementById('audio-hint'),
-        win: document.getElementById('audio-win'), milestone: document.getElementById('audio-milestone')
-    };
+    ui = { /* ... */ };
+    Object.assign(ui, { startButton: document.getElementById('startButton'), pauseButton: document.getElementById('pauseButton'), hintButton: document.getElementById('hintButton'), endButton: document.getElementById('endButton'), statusDiv: document.getElementById('status'), sphere: document.getElementById('sphere'), loadingOverlay: document.getElementById('loading-overlay') });
+    audio = { /* ... */ };
+    Object.assign(audio, { music: document.getElementById('audio-music'), correct: document.getElementById('audio-correct'), error: document.getElementById('audio-error'), hint: document.getElementById('audio-hint'), win: document.getElementById('audio-win'), milestone: document.getElementById('audio-milestone') });
     audio.music.volume = 0.1;
     Object.keys(audio).forEach(key => { if (key !== 'music') audio[key].volume = 0.3; });
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
     recognition.lang = 'ru-RU';
-    recognition.continuous = false;
+    
+    // ИСПРАВЛЕНИЕ: Включаем режим непрерывного прослушивания.
+    // Это убирает необходимость в перезапуске через onend.
+    recognition.continuous = true;
     recognition.interimResults = false;
     
     recognition.onresult = handleRecognitionResult;
-    recognition.onend = handleRecognitionEnd;
+    // ИСПРАВЛЕНИЕ: onend теперь просто отмечает, что мы больше не слушаем.
+    recognition.onend = () => { isListening = false; };
     recognition.onerror = handleRecognitionError;
 
     jsConfetti = new JSConfetti();
@@ -64,19 +58,16 @@ function setup() {
     ui.hintButton.addEventListener('click', provideHint);
     ui.endButton.addEventListener('click', confirmEndGame);
     
-    setSphereAnimation('idle'); // Устанавливаем базовое состояние
-
+    setSphereAnimation('idle');
     ui.loadingOverlay.style.opacity = '0';
     setTimeout(() => ui.loadingOverlay.style.display = 'none', 500);
 }
-
 
 // ===================================================================
 // 3. ОСНОВНАЯ ИГРОВАЯ ЛОГИКА
 // ===================================================================
 
 function setSphereAnimation(className) {
-    // Теперь это единственный способ управлять внешним видом сферы
     ui.sphere.className = className || 'idle';
 }
 
@@ -84,45 +75,44 @@ function speak(text, callback) {
     if (isSpeaking) return;
     stopListening();
     isSpeaking = true;
-    setSphereAnimation('idle');
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ru-RU'; utterance.rate = 1.1; utterance.volume = 1.0;
     utterance.onend = () => {
         setTimeout(() => {
             isSpeaking = false;
+            setSphereAnimation('idle');
             if (callback) callback();
-        }, 300);
+        }, 300); // Период тишины
     };
     window.speechSynthesis.speak(utterance);
 }
 
 function startListening() {
-    if (!isGameRunning || isSpeaking) return;
+    if (!isGameRunning || isSpeaking || isListening) return;
     isListening = true;
     setSphereAnimation('listening');
     ui.statusDiv.textContent = 'Слушаю тебя...';
-    try { recognition.start(); } catch (e) { /* Игнор */ }
+    try { recognition.start(); } catch (e) { isListening = false; }
 }
 
 function stopListening() {
-    isListening = false;
-    if (recognition) recognition.stop();
-    setSphereAnimation('idle');
+    if (isListening) {
+        recognition.stop();
+        isListening = false;
+    }
 }
 
 function computerTurn() {
     stopListening();
-    ui.statusDiv.textContent = 'Думаю...';
     setSphereAnimation('thinking');
-
+    ui.statusDiv.textContent = 'Думаю...';
+    
     setTimeout(() => {
         if (!isGameRunning) return;
         const availableWords = (dictionary[lastLetter] || []).filter(w => !usedWords.has(w));
-        if (availableWords.length === 0) {
-            handleWin('player');
-            return;
-        }
+        if (availableWords.length === 0) { handleWin('player'); return; }
+        
         const word = availableWords[Math.floor(Math.random() * availableWords.length)];
         processNewWord(word, 'computer');
         checkMilestone(() => speak(word, startListening));
@@ -130,13 +120,33 @@ function computerTurn() {
 }
 
 function handleRecognitionResult(event) {
-    if (!isListening || isSpeaking) return;
-    const result = event.results[0][0];
-    if (result.confidence < 0.5 || result.transcript.trim().split(' ').length > 1) return;
+    // В режиме continuous, onresult может вызываться несколько раз. Берем последний.
+    const result = event.results[event.results.length - 1][0];
     
+    console.log(result.confidence)
+    // ИСПРАВЛЕНИЕ: Повышаем порог уверенности для отсеивания шепота
+    if (result.confidence < 0.7) {
+        console.log(`Низкая уверенность: ${result.confidence.toFixed(2)}. Игнорирую.`);
+        return;
+    }
+
+    // Обрабатываем только если не говорим сами
+    if (isSpeaking) return;
+    
+    stopListening(); // Явно останавливаем, чтобы обработать слово и передать ход
+
     const userWord = result.transcript.trim().toLowerCase().replace('.', '');
+    if (userWord.split(' ').length > 1) {
+        handleMistake("Пожалуйста, скажите только одно слово.");
+        return;
+    }
+    
     if (usedWords.has(userWord)) { handleMistake("Такое слово уже было."); return; }
-    if (userWord.charAt(0) !== lastLetter) { handleMistake(`Неправильно. Слово на букву '${lastLetter}'.`); return; }
+    
+    if (userWord.charAt(0) !== lastLetter) {
+        handleMistake(`Неправильно. Слово должно быть на букву '${lastLetter}'.`);
+        return;
+    }
     
     audio.correct.play();
     processNewWord(userWord, 'player');
@@ -148,15 +158,16 @@ function handleMistake(message) {
     audio.error.play();
     setSphereAnimation('effect-error');
     speak(message, () => {
+        // После речи об ошибке, возвращаемся в режим прослушивания
         startListening();
     });
 }
 
 function provideHint() {
-    if (!isListening || hintCooldown) return;
+    if (!isGameRunning || hintCooldown || isSpeaking) return;
+    stopListening();
     hintCooldown = true;
     ui.hintButton.disabled = true;
-    stopListening();
     
     audio.hint.play();
     setSphereAnimation('effect-hint');
@@ -164,10 +175,7 @@ function provideHint() {
     const hintWords = (dictionary[lastLetter] || []).filter(w => !usedWords.has(w));
     const message = hintWords.length > 0 ? `Вот подсказка: ${hintWords[0]}` : `У меня нет подсказок!`;
     
-    speak(message, () => {
-        startListening();
-    });
-    
+    speak(message, startListening);
     setTimeout(() => { hintCooldown = false; if (isGameRunning) ui.hintButton.disabled = false; }, 5000);
 }
 
@@ -179,7 +187,7 @@ function handleWin(winner) {
     jsConfetti.addConfetti({ emojis: ['🏆', '✨', '🥇'] });
     audio.win.play();
     setSphereAnimation('effect-win');
-    const message = winner === 'player' ? "Ты победил! Поздравляю!" : "Я победил! В следующий раз повезёт!";
+    const message = winner === 'player' ? "Мне нечего сказать. Твоя победа! Поздравляю!" : "Я победил! В следующий раз повезёт!";
     ui.statusDiv.textContent = message;
     speak(message, resetUI);
 }
@@ -202,36 +210,25 @@ function startGame() {
 
 function endGame() {
     isGameRunning = false;
-    isListening = false;
     isSpeaking = false;
     stopListening();
     window.speechSynthesis.cancel();
 }
 
 function resetGame() {
-    usedWords.clear();
-    lastSpoken = {};
-    lastLetter = '';
-    hintCooldown = false;
+    usedWords.clear(); lastSpoken = {}; lastLetter = ''; hintCooldown = false;
     ui.hintButton.disabled = false;
-    ui.pauseButton.classList.remove('resume-mode');
-    ui.pauseButton.textContent = 'Пауза';
+    ui.pauseButton.classList.remove('resume-mode'); ui.pauseButton.textContent = 'Пауза';
     setSphereAnimation('idle');
 }
 
 function resetUI() {
     endGame();
-    audio.music.pause();
-    audio.music.currentTime = 0;
+    audio.music.pause(); audio.music.currentTime = 0;
     
-    [ui.pauseButton, ui.hintButton, ui.endButton].forEach(btn => {
-        btn.classList.add('hidden');
-        btn.disabled = false;
-    });
-    ui.pauseButton.classList.remove('resume-mode');
-    ui.pauseButton.textContent = 'Пауза';
-    ui.startButton.classList.remove('hidden');
-    ui.startButton.textContent = "Сыграть ещё раз";
+    [ui.pauseButton, ui.hintButton, ui.endButton].forEach(btn => { btn.classList.add('hidden'); btn.disabled = false; });
+    ui.pauseButton.classList.remove('resume-mode'); ui.pauseButton.textContent = 'Пауза';
+    ui.startButton.classList.remove('hidden'); ui.startButton.textContent = "Сыграть ещё раз";
     setSphereAnimation('idle');
     ui.statusDiv.textContent = 'Готов сыграть снова!';
 }
@@ -242,6 +239,7 @@ function togglePause() {
     
     if (isNowPaused) {
         stopListening();
+        setSphereAnimation('idle');
         window.speechSynthesis.cancel();
         audio.music.pause();
         ui.pauseButton.textContent = 'Продолжить';
@@ -285,6 +283,7 @@ function processNewWord(word, by) {
 
 function checkMilestone(nextTurn) {
     if (usedWords.size > 0 && usedWords.size % 25 === 0) {
+        setSphereAnimation('effect-milestone');
         jsConfetti.addConfetti({ emojis: ['🎉', '🎊', '🎈'] });
         audio.milestone.play();
         speak(`Ух ты, уже ${usedWords.size} слов!`, nextTurn);
@@ -293,14 +292,9 @@ function checkMilestone(nextTurn) {
     }
 }
 
-function handleRecognitionEnd() {
-    if (isListening) {
-        startRecognition();
-    }
-}
-
 function handleRecognitionError(e) {
-    if (e.error !== 'no-speech' && e.error !== 'aborted') {
+    // В режиме continuous, 'no-speech' почти не случается, но обработаем на всякий случай
+    if (e.error !== 'aborted' && e.error !== 'no-speech') {
         console.error(`Ошибка распознавания: ${e.error}`);
     }
 }

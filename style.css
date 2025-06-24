@@ -17,26 +17,20 @@ body {
     text-align: center; overflow: hidden;
 }
 #loading-overlay {
-    position: fixed; top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: var(--bg-color);
-    display: flex; justify-content: center; align-items: center;
-    z-index: 1000;
-    color: var(--text-color); font-size: 1.5em;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: var(--bg-color); display: flex; justify-content: center; align-items: center;
+    z-index: 1000; color: var(--text-color); font-size: 1.5em;
     transition: opacity 0.5s ease;
 }
 .container {
     width: 100%; max-width: 600px;
-    display: flex; flex-direction: column;
-    align-items: center; gap: 25px;
+    display: flex; flex-direction: column; align-items: center; gap: 25px;
 }
 #sphere {
-    width: clamp(200px, 45vw, 280px);
-    height: clamp(200px, 45vw, 280px);
+    width: clamp(200px, 45vw, 280px); height: clamp(200px, 45vw, 280px);
     border-radius: 50%;
     box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 5px 15px rgba(255,255,255,0.1);
     transition: background 0.4s ease, transform 0.4s ease;
-    /* ИСПРАВЛЕНИЕ: background убран отсюда, чтобы не перебивать классы */
 }
 @keyframes breathing {
     0%, 100% { transform: scale(1); }
@@ -52,14 +46,25 @@ body {
         box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 5px 15px rgba(255,255,255,0.1), 0 0 0 40px rgba(173, 98, 170, 0);
     }
 }
-/* НОВЫЙ КЛАСС для стандартного состояния */
-.idle { background: var(--sphere-bg); }
+/* НОВАЯ АНИМАЦИЯ для "ачивки" */
+@keyframes milestone-glow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
 
+.idle { background: var(--sphere-bg); }
 .listening { animation: breathing 2s ease-in-out infinite; background: var(--sphere-bg); }
 .thinking { animation: thinking-pulse 1.5s ease-in-out infinite; background: var(--sphere-bg); }
 .effect-error { background: radial-gradient(circle, #ff6b6b, #c92a2a); }
 .effect-hint { background: radial-gradient(circle, #ffdd57, #ff9f1a); }
 .effect-win { background: radial-gradient(circle, #ffd700, #f0932b); }
+/* НОВЫЙ КЛАСС для "ачивки" */
+.effect-milestone {
+    background: linear-gradient(270deg, #ad62aa, #4a47a3, #28a745, #ffc107);
+    background-size: 400% 400%;
+    animation: milestone-glow 3s ease infinite;
+}
 
 #status { font-size: clamp(1.1em, 3vw, 1.4em); min-height: 45px; font-weight: 300; }
 #controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 15px; width: 100%; }
