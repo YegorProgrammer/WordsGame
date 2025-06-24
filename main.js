@@ -137,7 +137,7 @@ function handleRecognitionResult(event) {
 
     const userWord = result.transcript.trim().toLowerCase().replace('.', '');
     if (userWord.split(' ').length > 1) {
-        handleMistake("Пожалуйста, скажите только одно слово.");
+        // handleMistake("Пожалуйста, скажите только одно слово.");
         return;
     }
     
