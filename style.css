@@ -1,12 +1,12 @@
 :root {
     --bg-color: #12121a;
-    --sphere-bg: radial-gradient(circle at 35% 35%, #7e78d2, #4a47a3);
     --text-color: #e0e0e0;
     --btn-start: #28a745;
     --btn-pause: #ffc107;
     --btn-hint: #17a2b8;
     --btn-end: #dc3545;
     --font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --sphere-dark-violet: #6A3DE8; /* Цвет тёмного облака в сфере для градиента кнопок */
 }
 * { box-sizing: border-box; }
 body {
@@ -32,6 +32,9 @@ body {
     box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 5px 15px rgba(255,255,255,0.1);
     transition: background 0.4s ease, transform 0.4s ease;
 }
+
+/* --- АНИМАЦИИ --- */
+
 @keyframes breathing {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.08); }
@@ -51,27 +54,84 @@ body {
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
 }
+@keyframes organic-drift {
+    0% {
+        background-position: 20% 25%, 80% 75%;
+    }
+    25% {
+        background-position: 80% 30%, 30% 80%;
+    }
+    50% {
+        background-position: 75% 85%, 25% 15%;
+    }
+    75% {
+        background-position: 25% 70%, 75% 30%;
+    }
+    100% {
+        background-position: 20% 25%, 80% 75%;
+    }
+}
 
-.idle { background: var(--sphere-bg); }
-.listening { animation: breathing 2s ease-in-out infinite; background: var(--sphere-bg); }
-.thinking { animation: thinking-pulse 1.5s ease-in-out infinite; background: var(--sphere-bg); }
-.effect-error { background: radial-gradient(circle, #ff6b6b, #c92a2a); }
-.effect-hint { background: radial-gradient(circle, #ffdd57, #ff9f1a); }
-.effect-win { background: radial-gradient(circle, #ffd700, #f0932b); }
+/* --- СОСТОЯНИЯ СФЕРЫ --- */
+
+.idle, .listening, .thinking {
+    background:
+        radial-gradient(circle, #BE93FD 0%, transparent 65%),
+        radial-gradient(circle, #6A3DE8 0%, transparent 70%),
+        #100f1c;
+    background-size: 250% 250%, 200% 200%;
+    background-blend-mode: screen; 
+    animation: organic-drift 20s ease-in-out infinite;
+}
+
+.listening {
+    animation: organic-drift 20s ease-in-out infinite,
+               breathing 2s ease-in-out infinite;
+}
+
+.thinking {
+    animation: organic-drift 20s ease-in-out infinite,
+               thinking-pulse 1.5s ease-in-out infinite;
+}
+
+/* Эффекты для особых событий */
+.effect-error { background: radial-gradient(circle, #ff6b6b, #c92a2a); animation: none; background-blend-mode: normal; }
+.effect-hint { background: radial-gradient(circle, #ffdd57, #ff9f1a); animation: none; background-blend-mode: normal; }
+.effect-win { background: radial-gradient(circle, #ffd700, #f0932b); animation: none; background-blend-mode: normal; }
 .effect-milestone {
     background: linear-gradient(270deg, #ad62aa, #4a47a3, #28a745, #ffc107);
     background-size: 400% 400%;
     animation: milestone-glow 3s ease infinite;
+    background-blend-mode: normal;
 }
+
+/* --- СТИЛИ КНОПОК И УПРАВЛЕНИЯ --- */
 
 #status { font-size: clamp(1.1em, 3vw, 1.4em); min-height: 45px; font-weight: 300; }
 #controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 15px; width: 100%; }
-.btn { padding: 12px 20px; font-size: 1em; font-weight: 600; cursor: pointer; border: none; border-radius: 8px; color: white; transition: all 0.2s; flex-grow: 1; flex-basis: 130px; max-width: 200px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+
+.btn {
+    padding: 12px 20px; font-size: 1em; font-weight: 600; cursor: pointer;
+    border: none; border-radius: 8px; color: white;
+    transition: all 0.2s; flex-grow: 1; flex-basis: 130px;
+    max-width: 200px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    background: linear-gradient(135deg, var(--sphere-dark-violet) 20%, var(--btn-main-color) 20%);
+}
+
 .btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
-.btn:disabled { background-color: #555 !important; cursor: not-allowed; transform: none; box-shadow: none; }
-#startButton { background-color: var(--btn-start); }
-#pauseButton { background-color: var(--btn-pause); color: #212529; }
-#pauseButton.resume-mode { background-color: #00bcd4; color: white; }
-#hintButton { background-color: var(--btn-hint); }
-#endButton { background-color: var(--btn-end); }
+.btn:disabled {
+    background: #555 !important;
+    cursor: not-allowed; transform: none; box-shadow: none;
+}
+
+#startButton { --btn-main-color: var(--btn-start); }
+#pauseButton { --btn-main-color: var(--btn-pause); color: #212529; }
+#hintButton { --btn-main-color: var(--btn-hint); }
+#endButton { --btn-main-color: var(--btn-end); }
+
+#pauseButton.resume-mode {
+    --btn-main-color: #00bcd4;
+    color: white;
+}
+
 .hidden { display: none; }

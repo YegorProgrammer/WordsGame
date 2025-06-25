@@ -37,7 +37,7 @@ function setup() {
     audio.music.volume = 0.1;
     Object.keys(audio).forEach(key => { if (key !== 'music') audio[key].volume = 0.4; });
     
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
     recognition = new SpeechRecognition();
     recognition.lang = 'ru-RU';
     
@@ -48,7 +48,7 @@ function setup() {
     
     recognition.onresult = handleRecognitionResult;
     // ИСПРАВЛЕНИЕ: onend теперь просто отмечает, что мы больше не слушаем.
-    recognition.onend = () => { isListening = false; };
+    recognition.onend = () => { isListening = false; console.log('end')};
     recognition.onerror = handleRecognitionError;
 
     jsConfetti = new JSConfetti();
@@ -93,7 +93,6 @@ function startListening() {
     isListening = true;
     setSphereAnimation('listening');
     ui.statusDiv.textContent = 'Слушаю тебя...';
-
     const audioTrack = mediaStream.getAudioTracks()[0];
     try { recognition.start(audioTrack); } catch (e) { isListening = false; }
 }
@@ -299,10 +298,9 @@ function checkMilestone(nextTurn) {
 }
 
 function handleRecognitionError(e) {
-    // В режиме continuous, 'no-speech' почти не случается, но обработаем на всякий случай
-    if (e.error !== 'aborted' && e.error !== 'no-speech') {
-        console.error(`Ошибка распознавания: ${e.error}`);
-    }
+    isListening = false;
+    if (e.error === 'no-speech') startListening();
+    console.error(`Ошибка распознавания: ${e.error}`);
 }
 
 async function startMicrophone() {
