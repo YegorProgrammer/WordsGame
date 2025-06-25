@@ -41,14 +41,12 @@ function setup() {
     recognition = new SpeechRecognition();
     recognition.lang = 'ru-RU';
     
-    // ИСПРАВЛЕНИЕ: Включаем режим непрерывного прослушивания.
-    // Это убирает необходимость в перезапуске через onend.
-    recognition.continuous = true;
+    // Выключаем режим непрерывного прослушивания для механики "push-to-talk".
+    recognition.continuous = false;
     recognition.interimResults = false;
     
     recognition.onresult = handleRecognitionResult;
-    // ИСПРАВЛЕНИЕ: onend теперь просто отмечает, что мы больше не слушаем.
-    recognition.onend = () => { isListening = false; };
+    recognition.onend = () => { isListening = false; }; // onend теперь просто отмечает, что мы больше не слушаем.
     recognition.onerror = handleRecognitionError;
 
     jsConfetti = new JSConfetti();
@@ -57,6 +55,12 @@ function setup() {
     ui.pauseButton.addEventListener('click', togglePause);
     ui.hintButton.addEventListener('click', provideHint);
     ui.endButton.addEventListener('click', confirmEndGame);
+
+    // Добавляем обработчики нажатия на сферу для "push-to-talk"
+    ui.sphere.addEventListener('mousedown', handleSpherePress);
+    ui.sphere.addEventListener('mouseup', handleSphereRelease);
+    ui.sphere.addEventListener('touchstart', handleSpherePress, { passive: true });
+    ui.sphere.addEventListener('touchend', handleSphereRelease);
     
     setSphereAnimation('idle');
     ui.loadingOverlay.style.opacity = '0';
@@ -71,17 +75,38 @@ function setSphereAnimation(className) {
     ui.sphere.className = className || 'idle';
 }
 
+// Функции для управления "push-to-talk"
+function handleSpherePress() {
+    // Начинаем слушать только если сейчас ход игрока (игра идет, компьютер не говорит)
+    if (isGameRunning && !isSpeaking && !isListening && ui.sphere.classList.contains('waiting-for-user')) {
+        startListening();
+    }
+}
+
+function handleSphereRelease() {
+    if (isListening) {
+        stopListening();
+    }
+}
+
+// Функция для перехода в режим ожидания ответа игрока
+function waitForPlayerInput() {
+    stopListening(); // На всякий случай
+    setSphereAnimation('waiting-for-user');
+    ui.statusDiv.textContent = 'Ваш ход. Зажмите, чтобы говорить.';
+}
+
 function speak(text, callback) {
     if (isSpeaking) return;
     stopListening();
     isSpeaking = true;
+    setSphereAnimation('idle'); // Сфера в idle, пока говорит компьютер
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ru-RU'; utterance.rate = 1.1; utterance.volume = 1.0;
     utterance.onend = () => {
         setTimeout(() => {
             isSpeaking = false;
-            setSphereAnimation('idle');
             if (callback) callback();
         }, 300); // Период тишины
     };
@@ -91,15 +116,15 @@ function speak(text, callback) {
 function startListening() {
     if (!isGameRunning || isSpeaking || isListening) return;
     isListening = true;
-    setSphereAnimation('listening');
-    ui.statusDiv.textContent = 'Слушаю тебя...';
+    // При удержании включаем анимацию "listening" для лучшего UX
+    setSphereAnimation('listening'); 
+    ui.statusDiv.textContent = 'Слушаю... Отпустите, когда закончите.';
     try { recognition.start(); } catch (e) { isListening = false; }
 }
 
 function stopListening() {
     if (isListening) {
-        recognition.stop();
-        isListening = false;
+        recognition.stop(); // Это асинхронно вызовет onend
     }
 }
 
@@ -115,29 +140,29 @@ function computerTurn() {
         
         const word = availableWords[Math.floor(Math.random() * availableWords.length)];
         processNewWord(word, 'computer');
-        checkMilestone(() => speak(word, startListening));
+        // После хода компьютера ждем ответа игрока, а не слушаем автоматически
+        checkMilestone(() => speak(word, waitForPlayerInput));
     }, 1200);
 }
 
 function handleRecognitionResult(event) {
-    // В режиме continuous, onresult может вызываться несколько раз. Берем последний.
     const result = event.results[event.results.length - 1][0];
     
+    // После распознавания ставим сферу в idle, пока обрабатываем результат.
+    setSphereAnimation('idle');
+    ui.statusDiv.textContent = 'Обрабатываю ответ...';
+    
     console.log(result.confidence)
-    // ИСПРАВЛЕНИЕ: Повышаем порог уверенности для отсеивания шепота
     if (result.confidence < 0.7) {
         console.log(`Низкая уверенность: ${result.confidence.toFixed(2)}. Игнорирую.`);
+        handleMistake("Не удалось распознать слово. Попробуйте еще раз.");
         return;
     }
 
-    // Обрабатываем только если не говорим сами
     if (isSpeaking) return;
-    
-    stopListening(); // Явно останавливаем, чтобы обработать слово и передать ход
 
     const userWord = result.transcript.trim().toLowerCase().replace('.', '');
     if (userWord.split(' ').length > 1) {
-        // handleMistake("Пожалуйста, скажите только одно слово.");
         return;
     }
     
@@ -157,10 +182,8 @@ function handleMistake(message) {
     stopListening();
     audio.error.play();
     setSphereAnimation('effect-error');
-    speak(message, () => {
-        // После речи об ошибке, возвращаемся в режим прослушивания
-        startListening();
-    });
+    // После сообщения об ошибке ждем ответа игрока
+    speak(message, waitForPlayerInput);
 }
 
 function provideHint() {
@@ -175,7 +198,8 @@ function provideHint() {
     const hintWords = (dictionary[lastLetter] || []).filter(w => !usedWords.has(w));
     const message = hintWords.length > 0 ? `Вот подсказка: ${hintWords[0]}` : `У меня нет подсказок!`;
     
-    speak(message, startListening);
+    // После подсказки ждем ответа игрока
+    speak(message, waitForPlayerInput);
     setTimeout(() => { hintCooldown = false; if (isGameRunning) ui.hintButton.disabled = false; }, 5000);
 }
 
@@ -187,6 +211,7 @@ function handleWin(winner) {
     jsConfetti.addConfetti({ emojis: ['🏆', '✨', '🥇'] });
     audio.win.play();
     setSphereAnimation('effect-win');
+    ui.sphere.style.cursor = 'default'; // Возвращаем курсор
     const message = winner === 'player' ? "Мне нечего сказать. Твоя победа! Поздравляю!" : "Я победил! В следующий раз повезёт!";
     ui.statusDiv.textContent = message;
     speak(message, resetUI);
@@ -205,7 +230,8 @@ function startGame() {
     audio.music.play();
     const firstWord = dictionary['а'][Math.floor(Math.random() * dictionary['а'].length)];
     processNewWord(firstWord, 'computer');
-    speak(`Начинаем! Мое первое слово: ${firstWord}`, startListening);
+    // После первого слова ждем ответа игрока
+    speak(`Начинаем! Мое первое слово: ${firstWord}`, waitForPlayerInput);
 }
 
 function endGame() {
@@ -220,6 +246,7 @@ function resetGame() {
     ui.hintButton.disabled = false;
     ui.pauseButton.classList.remove('resume-mode'); ui.pauseButton.textContent = 'Пауза';
     setSphereAnimation('idle');
+    ui.sphere.style.cursor = 'default'; // Сбрасываем курсор
 }
 
 function resetUI() {
@@ -240,6 +267,7 @@ function togglePause() {
     if (isNowPaused) {
         stopListening();
         setSphereAnimation('idle');
+        ui.sphere.style.cursor = 'default';
         window.speechSynthesis.cancel();
         audio.music.pause();
         ui.pauseButton.textContent = 'Продолжить';
@@ -251,7 +279,8 @@ function togglePause() {
         const resumeMessage = `Продолжаем. Последнее слово было "${lastSpoken.word}", его сказал ${whoSpoke}.`;
         speak(resumeMessage, () => {
             if (lastSpoken.by === 'player') computerTurn();
-            else startListening();
+            // Если был ход игрока, ждем его ввода
+            else waitForPlayerInput();
         });
     }
 }
@@ -294,31 +323,9 @@ function checkMilestone(nextTurn) {
 
 function handleRecognitionError(e) {
     isListening = false;
-    if (e.error === 'no-speech') startListening();
+    // Не перезапускаем слушание, а возвращаемся в режим ожидания, если была ошибка.
+    if (e.error === 'no-speech' || e.error === 'audio-capture') {
+        waitForPlayerInput();
+    }
     console.error(`Ошибка распознавания: ${e.error}`);
 }
-
-// async function startMicrophone() {
-//     try {
-//         mediaStream = await navigator.mediaDevices.getUserMedia({
-//             audio: { echoCancellation: true, noiseSuppression: true }
-//         });
-//         return true;
-//     } catch (err) {
-//         console.error("Ошибка доступа к микрофону:", err);
-//         ui.statusDiv.textContent = "Не удалось получить доступ к микрофону. Проверьте разрешения.";
-//         return false;
-//     }
-// }
-
-// function stopMicrophone() {
-//     if (mediaStream) {
-//         mediaStream.getTracks().forEach(track => track.stop());
-//         mediaStream = null;
-//     }
-// }
-
-// ===================================================================
-// 6. ЗАПУСК ПРОГРАММЫ
-// ===================================================================
-document.addEventListener('DOMContentLoaded', init);

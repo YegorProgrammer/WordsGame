@@ -49,6 +49,16 @@ body {
         box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 5px 15px rgba(255,255,255,0.1), 0 0 0 40px rgba(173, 98, 170, 0);
     }
 }
+@keyframes attract-pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 5px 15px rgba(255,255,255,0.1), 0 0 0 40px rgba(98, 173, 170, 0);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 5px 15px rgba(255,255,255,0.1), 0 0 0 0px rgba(98, 173, 170, 0.5);
+    }
+}
 @keyframes milestone-glow {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
@@ -74,7 +84,7 @@ body {
 
 /* --- СОСТОЯНИЯ СФЕРЫ --- */
 
-.idle, .listening, .thinking {
+.idle, .listening, .thinking, .waiting-for-user {
     background:
         radial-gradient(circle, #BE93FD 0%, transparent 65%),
         radial-gradient(circle, #6A3DE8 0%, transparent 70%),
@@ -93,6 +103,13 @@ body {
     animation: organic-drift 20s ease-in-out infinite,
                thinking-pulse 1.5s ease-in-out infinite;
 }
+
+.waiting-for-user {
+    cursor: pointer;
+    animation: organic-drift 20s ease-in-out infinite,
+               attract-pulse 2s ease-in-out infinite;
+}
+
 
 /* Эффекты для особых событий */
 .effect-error { background: radial-gradient(circle, #ff6b6b, #c92a2a); animation: none; background-blend-mode: normal; }
