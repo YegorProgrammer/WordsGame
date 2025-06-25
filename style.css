@@ -46,7 +46,6 @@ body {
         box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 5px 15px rgba(255,255,255,0.1), 0 0 0 40px rgba(173, 98, 170, 0);
     }
 }
-/* НОВАЯ АНИМАЦИЯ для "ачивки" */
 @keyframes milestone-glow {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
@@ -59,7 +58,6 @@ body {
 .effect-error { background: radial-gradient(circle, #ff6b6b, #c92a2a); }
 .effect-hint { background: radial-gradient(circle, #ffdd57, #ff9f1a); }
 .effect-win { background: radial-gradient(circle, #ffd700, #f0932b); }
-/* НОВЫЙ КЛАСС для "ачивки" */
 .effect-milestone {
     background: linear-gradient(270deg, #ad62aa, #4a47a3, #28a745, #ffc107);
     background-size: 400% 400%;

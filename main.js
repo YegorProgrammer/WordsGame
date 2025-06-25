@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', init);
 // 1. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
 // ===================================================================
 let dictionary = {};
-let ui, audio, recognition, jsConfetti;
+let ui, audio, recognition, mediaStream, jsConfetti;
 
 let isGameRunning = false;
 let isListening = false;
@@ -31,12 +31,12 @@ async function init() {
 
 function setup() {
     ui = { /* ... */ };
-    Object.assign(ui, { startButton: document.getElementById('startButton'), pauseButton: document.getElementById('pauseButton'), hintButton: document.getElementById('hintButton'), endButton: document.getElementById('endButton'), statusDiv: document.getElementById('status'), sphere: document.getElementById('sphere'), loadingOverlay: document.getElementById('loading-overlay') });
+    Object.assign(ui, { startButton: document.getElementById('startButton'), endButton: document.getElementById('endButton'), pauseButton: document.getElementById('pauseButton'), hintButton: document.getElementById('hintButton'), statusDiv: document.getElementById('status'), sphere: document.getElementById('sphere'), loadingOverlay: document.getElementById('loading-overlay') });
     audio = { /* ... */ };
     Object.assign(audio, { music: document.getElementById('audio-music'), correct: document.getElementById('audio-correct'), error: document.getElementById('audio-error'), hint: document.getElementById('audio-hint'), win: document.getElementById('audio-win'), milestone: document.getElementById('audio-milestone') });
     audio.music.volume = 0.1;
-    Object.keys(audio).forEach(key => { if (key !== 'music') audio[key].volume = 0.3; });
-
+    Object.keys(audio).forEach(key => { if (key !== 'music') audio[key].volume = 0.4; });
+    
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
     recognition.lang = 'ru-RU';
@@ -93,7 +93,9 @@ function startListening() {
     isListening = true;
     setSphereAnimation('listening');
     ui.statusDiv.textContent = 'Слушаю тебя...';
-    try { recognition.start(); } catch (e) { isListening = false; }
+
+    const audioTrack = mediaStream.getAudioTracks()[0];
+    try { recognition.start(audioTrack); } catch (e) { isListening = false; }
 }
 
 function stopListening() {
@@ -197,6 +199,7 @@ function handleWin(winner) {
 // ===================================================================
 function startGame() {
     resetGame();
+    if (!startMicrophone()) return;
     isGameRunning = true;
     
     ui.startButton.classList.add('hidden');
@@ -212,6 +215,7 @@ function endGame() {
     isGameRunning = false;
     isSpeaking = false;
     stopListening();
+    stopMicrophone()
     window.speechSynthesis.cancel();
 }
 
@@ -239,12 +243,14 @@ function togglePause() {
     
     if (isNowPaused) {
         stopListening();
+        stopMicrophone()
         setSphereAnimation('idle');
         window.speechSynthesis.cancel();
         audio.music.pause();
         ui.pauseButton.textContent = 'Продолжить';
         ui.statusDiv.textContent = 'Игра на паузе';
     } else {
+        if (!startMicrophone()) return;
         audio.music.play();
         ui.pauseButton.textContent = 'Пауза';
         const whoSpoke = lastSpoken.by === 'player' ? 'ты' : 'я';
@@ -296,6 +302,26 @@ function handleRecognitionError(e) {
     // В режиме continuous, 'no-speech' почти не случается, но обработаем на всякий случай
     if (e.error !== 'aborted' && e.error !== 'no-speech') {
         console.error(`Ошибка распознавания: ${e.error}`);
+    }
+}
+
+async function startMicrophone() {
+    try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true }
+        });
+        return true;
+    } catch (err) {
+        console.error("Ошибка доступа к микрофону:", err);
+        ui.statusDiv.textContent = "Не удалось получить доступ к микрофону. Проверьте разрешения.";
+        return false;
+    }
+}
+
+function stopMicrophone() {
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
     }
 }
 
