@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', init);
 // 1. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
 // ===================================================================
 let dictionary = {};
-let ui, audio, recognition, mediaStream, jsConfetti;
+let ui, audio, recognition, jsConfetti;
 
 let isGameRunning = false;
 let isListening = false;
@@ -48,7 +48,7 @@ function setup() {
     
     recognition.onresult = handleRecognitionResult;
     // ИСПРАВЛЕНИЕ: onend теперь просто отмечает, что мы больше не слушаем.
-    recognition.onend = () => { isListening = false; console.log('end')};
+    recognition.onend = () => { isListening = false; };
     recognition.onerror = handleRecognitionError;
 
     jsConfetti = new JSConfetti();
@@ -93,8 +93,7 @@ function startListening() {
     isListening = true;
     setSphereAnimation('listening');
     ui.statusDiv.textContent = 'Слушаю тебя...';
-    const audioTrack = mediaStream.getAudioTracks()[0];
-    try { recognition.start(audioTrack); } catch (e) { isListening = false; }
+    try { recognition.start(); } catch (e) { isListening = false; }
 }
 
 function stopListening() {
@@ -198,7 +197,6 @@ function handleWin(winner) {
 // ===================================================================
 function startGame() {
     resetGame();
-    if (!startMicrophone()) return;
     isGameRunning = true;
     
     ui.startButton.classList.add('hidden');
@@ -214,7 +212,6 @@ function endGame() {
     isGameRunning = false;
     isSpeaking = false;
     stopListening();
-    stopMicrophone()
     window.speechSynthesis.cancel();
 }
 
@@ -242,14 +239,12 @@ function togglePause() {
     
     if (isNowPaused) {
         stopListening();
-        stopMicrophone()
         setSphereAnimation('idle');
         window.speechSynthesis.cancel();
         audio.music.pause();
         ui.pauseButton.textContent = 'Продолжить';
         ui.statusDiv.textContent = 'Игра на паузе';
     } else {
-        if (!startMicrophone()) return;
         audio.music.play();
         ui.pauseButton.textContent = 'Пауза';
         const whoSpoke = lastSpoken.by === 'player' ? 'ты' : 'я';
@@ -303,25 +298,25 @@ function handleRecognitionError(e) {
     console.error(`Ошибка распознавания: ${e.error}`);
 }
 
-async function startMicrophone() {
-    try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true }
-        });
-        return true;
-    } catch (err) {
-        console.error("Ошибка доступа к микрофону:", err);
-        ui.statusDiv.textContent = "Не удалось получить доступ к микрофону. Проверьте разрешения.";
-        return false;
-    }
-}
+// async function startMicrophone() {
+//     try {
+//         mediaStream = await navigator.mediaDevices.getUserMedia({
+//             audio: { echoCancellation: true, noiseSuppression: true }
+//         });
+//         return true;
+//     } catch (err) {
+//         console.error("Ошибка доступа к микрофону:", err);
+//         ui.statusDiv.textContent = "Не удалось получить доступ к микрофону. Проверьте разрешения.";
+//         return false;
+//     }
+// }
 
-function stopMicrophone() {
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        mediaStream = null;
-    }
-}
+// function stopMicrophone() {
+//     if (mediaStream) {
+//         mediaStream.getTracks().forEach(track => track.stop());
+//         mediaStream = null;
+//     }
+// }
 
 // ===================================================================
 // 6. ЗАПУСК ПРОГРАММЫ
