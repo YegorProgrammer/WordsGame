@@ -41,12 +41,11 @@ function setup() {
     recognition = new SpeechRecognition();
     recognition.lang = 'ru-RU';
     
-    // Выключаем режим непрерывного прослушивания для механики "push-to-talk".
     recognition.continuous = false;
     recognition.interimResults = false;
     
     recognition.onresult = handleRecognitionResult;
-    recognition.onend = () => { isListening = false; }; // onend теперь просто отмечает, что мы больше не слушаем.
+    recognition.onend = () => { isListening = false; };
     recognition.onerror = handleRecognitionError;
 
     jsConfetti = new JSConfetti();
@@ -56,7 +55,6 @@ function setup() {
     ui.hintButton.addEventListener('click', provideHint);
     ui.endButton.addEventListener('click', confirmEndGame);
 
-    // Добавляем обработчики нажатия на сферу для "push-to-talk"
     ui.sphere.addEventListener('mousedown', handleSpherePress);
     ui.sphere.addEventListener('mouseup', handleSphereRelease);
     ui.sphere.addEventListener('touchstart', handleSpherePress, { passive: true });
@@ -75,24 +73,26 @@ function setSphereAnimation(className) {
     ui.sphere.className = className || 'idle';
 }
 
-// Функции для управления "push-to-talk"
 function handleSpherePress() {
-    // Начинаем слушать только если сейчас ход игрока (игра идет, компьютер не говорит)
-    if (isGameRunning && !isSpeaking && !isListening && ui.sphere.classList.contains('waiting-for-user')) {
+    if (isGameRunning && !isSpeaking && !isListening && ui.sphere.classList.contains('waiting')) {
         startListening();
     }
 }
 
 function handleSphereRelease() {
     if (isListening) {
+        // Немедленно обновляем UI, не дожидаясь ответа от API распознавания
+        setSphereAnimation('idle'); 
+        ui.statusDiv.textContent = 'Секунду...';
+        
+        // Асинхронно останавливаем прослушивание
         stopListening();
     }
 }
 
-// Функция для перехода в режим ожидания ответа игрока
-function waitForPlayerInput() {
-    stopListening(); // На всякий случай
-    setSphereAnimation('waiting-for-user');
+function waitForInput() {
+    stopListening();
+    setSphereAnimation('waiting');
     ui.statusDiv.textContent = 'Ваш ход. Зажмите, чтобы говорить.';
 }
 
@@ -100,15 +100,15 @@ function speak(text, callback) {
     if (isSpeaking) return;
     stopListening();
     isSpeaking = true;
-    setSphereAnimation('idle'); // Сфера в idle, пока говорит компьютер
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ru-RU'; utterance.rate = 1.1; utterance.volume = 1.0;
     utterance.onend = () => {
         setTimeout(() => {
             isSpeaking = false;
+            setSphereAnimation('idle');
             if (callback) callback();
-        }, 300); // Период тишины
+        }, 300);
     };
     window.speechSynthesis.speak(utterance);
 }
@@ -116,7 +116,6 @@ function speak(text, callback) {
 function startListening() {
     if (!isGameRunning || isSpeaking || isListening) return;
     isListening = true;
-    // При удержании включаем анимацию "listening" для лучшего UX
     setSphereAnimation('listening'); 
     ui.statusDiv.textContent = 'Слушаю... Отпустите, когда закончите.';
     try { recognition.start(); } catch (e) { isListening = false; }
@@ -124,7 +123,7 @@ function startListening() {
 
 function stopListening() {
     if (isListening) {
-        recognition.stop(); // Это асинхронно вызовет onend
+        recognition.stop();
     }
 }
 
@@ -140,21 +139,17 @@ function computerTurn() {
         
         const word = availableWords[Math.floor(Math.random() * availableWords.length)];
         processNewWord(word, 'computer');
-        // После хода компьютера ждем ответа игрока, а не слушаем автоматически
-        checkMilestone(() => speak(word, waitForPlayerInput));
+        checkMilestone(() => speak(word, waitForInput));
     }, 1200);
 }
 
 function handleRecognitionResult(event) {
     const result = event.results[event.results.length - 1][0];
     
-    // После распознавания ставим сферу в idle, пока обрабатываем результат.
     setSphereAnimation('idle');
     ui.statusDiv.textContent = 'Обрабатываю ответ...';
     
-    console.log(result.confidence)
     if (result.confidence < 0.7) {
-        console.log(`Низкая уверенность: ${result.confidence.toFixed(2)}. Игнорирую.`);
         handleMistake("Не удалось распознать слово. Попробуйте еще раз.");
         return;
     }
@@ -162,14 +157,10 @@ function handleRecognitionResult(event) {
     if (isSpeaking) return;
 
     const userWord = result.transcript.trim().toLowerCase().replace('.', '');
-    if (userWord.split(' ').length > 1) {
-        return;
-    }
-    
+    if (userWord.split(' ').length > 1) { return; }
     if (usedWords.has(userWord)) { handleMistake("Такое слово уже было."); return; }
-    
     if (userWord.charAt(0) !== lastLetter) {
-        handleMistake(`Неправильно. Слово должно быть на букву '${lastLetter}'.`);
+        handleMistake(`Неправильно. Слово должно быть на букву ${lastLetter.toUpperCase()}.`);
         return;
     }
     
@@ -182,8 +173,7 @@ function handleMistake(message) {
     stopListening();
     audio.error.play();
     setSphereAnimation('effect-error');
-    // После сообщения об ошибке ждем ответа игрока
-    speak(message, waitForPlayerInput);
+    speak(message, waitForInput);
 }
 
 function provideHint() {
@@ -198,8 +188,7 @@ function provideHint() {
     const hintWords = (dictionary[lastLetter] || []).filter(w => !usedWords.has(w));
     const message = hintWords.length > 0 ? `Вот подсказка: ${hintWords[0]}` : `У меня нет подсказок!`;
     
-    // После подсказки ждем ответа игрока
-    speak(message, waitForPlayerInput);
+    speak(message, waitForInput);
     setTimeout(() => { hintCooldown = false; if (isGameRunning) ui.hintButton.disabled = false; }, 5000);
 }
 
@@ -211,7 +200,7 @@ function handleWin(winner) {
     jsConfetti.addConfetti({ emojis: ['🏆', '✨', '🥇'] });
     audio.win.play();
     setSphereAnimation('effect-win');
-    ui.sphere.style.cursor = 'default'; // Возвращаем курсор
+    ui.sphere.style.cursor = 'default';
     const message = winner === 'player' ? "Мне нечего сказать. Твоя победа! Поздравляю!" : "Я победил! В следующий раз повезёт!";
     ui.statusDiv.textContent = message;
     speak(message, resetUI);
@@ -230,8 +219,7 @@ function startGame() {
     audio.music.play();
     const firstWord = dictionary['а'][Math.floor(Math.random() * dictionary['а'].length)];
     processNewWord(firstWord, 'computer');
-    // После первого слова ждем ответа игрока
-    speak(`Начинаем! Мое первое слово: ${firstWord}`, waitForPlayerInput);
+    speak(`Начинаем! Мое первое слово: ${firstWord}`, waitForInput);
 }
 
 function endGame() {
@@ -246,7 +234,7 @@ function resetGame() {
     ui.hintButton.disabled = false;
     ui.pauseButton.classList.remove('resume-mode'); ui.pauseButton.textContent = 'Пауза';
     setSphereAnimation('idle');
-    ui.sphere.style.cursor = 'default'; // Сбрасываем курсор
+    ui.sphere.style.cursor = 'default';
 }
 
 function resetUI() {
@@ -263,10 +251,10 @@ function resetUI() {
 function togglePause() {
     if (!isGameRunning) return;
     const isNowPaused = ui.pauseButton.classList.toggle('resume-mode');
-    
+    setSphereAnimation('idle');
+
     if (isNowPaused) {
         stopListening();
-        setSphereAnimation('idle');
         ui.sphere.style.cursor = 'default';
         window.speechSynthesis.cancel();
         audio.music.pause();
@@ -279,8 +267,7 @@ function togglePause() {
         const resumeMessage = `Продолжаем. Последнее слово было "${lastSpoken.word}", его сказал ${whoSpoke}.`;
         speak(resumeMessage, () => {
             if (lastSpoken.by === 'player') computerTurn();
-            // Если был ход игрока, ждем его ввода
-            else waitForPlayerInput();
+            else waitForInput();
         });
     }
 }
@@ -323,9 +310,9 @@ function checkMilestone(nextTurn) {
 
 function handleRecognitionError(e) {
     isListening = false;
-    // Не перезапускаем слушание, а возвращаемся в режим ожидания, если была ошибка.
+    // Если речь не была распознана (в т.ч. из-за тишины), корректно возвращаемся в режим ожидания.
     if (e.error === 'no-speech' || e.error === 'audio-capture') {
-        waitForPlayerInput();
+        waitForInput();
     }
     console.error(`Ошибка распознавания: ${e.error}`);
 }

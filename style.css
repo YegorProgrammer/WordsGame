@@ -84,7 +84,7 @@ body {
 
 /* --- СОСТОЯНИЯ СФЕРЫ --- */
 
-.idle, .listening, .thinking, .waiting-for-user {
+.idle, .listening, .thinking, .waiting {
     background:
         radial-gradient(circle, #BE93FD 0%, transparent 65%),
         radial-gradient(circle, #6A3DE8 0%, transparent 70%),
@@ -104,7 +104,7 @@ body {
                thinking-pulse 1.5s ease-in-out infinite;
 }
 
-.waiting-for-user {
+.waiting {
     cursor: pointer;
     animation: organic-drift 20s ease-in-out infinite,
                attract-pulse 2s ease-in-out infinite;
