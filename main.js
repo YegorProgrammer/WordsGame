@@ -45,7 +45,7 @@ function setup() {
     recognition.interimResults = false;
     
     recognition.onresult = handleRecognitionResult;
-    recognition.onend = () => { isListening = false; };
+    recognition.onend = handleRecognitionEnd;
     recognition.onerror = handleRecognitionError;
 
     jsConfetti = new JSConfetti();
@@ -84,9 +84,11 @@ function handleSphereRelease() {
         // Немедленно обновляем UI, не дожидаясь ответа от API распознавания
         setSphereAnimation('idle'); 
         ui.statusDiv.textContent = 'Секунду...';
-        
+
+        isListening = false;
         // Асинхронно останавливаем прослушивание
         stopListening();
+        // waitForInput()
     }
 }
 
@@ -167,6 +169,11 @@ function handleRecognitionResult(event) {
     audio.correct.play();
     processNewWord(userWord, 'player');
     checkMilestone(computerTurn);
+}
+
+function handleRecognitionEnd() {
+    isListening = fetch;
+    waitForInput();
 }
 
 function handleMistake(message) {
